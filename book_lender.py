@@ -18,6 +18,8 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+__version__ = "1.0.0"
+
 DATA_DIR = Path(os.environ.get("BOOK_LENDER_DATA_DIR", Path(__file__).resolve().parent / "data"))
 BOOKS_FILE = DATA_DIR / "books.json"
 BORROWERS_FILE = DATA_DIR / "borrowers.json"
@@ -278,7 +280,12 @@ def cmd_list_books(args: argparse.Namespace, store: Store) -> int:
         return 0
     for book in store.books:
         loan = store.active_loan_for_book(int(book.get("id", 0)))
-        tag = "lent out" if loan else "available"
+        is_lent = loan is not None
+        if args.available and is_lent:
+            continue
+        if args.lent and not is_lent:
+            continue
+        tag = "lent out" if is_lent else "available"
         print(f"#{book.get('id', '')} {book.get('title', '')} [{tag}]")
         if book.get("author"):
             print(f"      author: {book['author']}")
@@ -318,6 +325,11 @@ def cmd_overdue(args: argparse.Namespace, store: Store) -> int:
         return 0
     for loan in loans:
         print(_format_loan(loan, store))
+    return 0
+
+
+def cmd_version(args: argparse.Namespace, store: Store) -> int:
+    print(f"book-lender {__version__}")
     return 0
 
 
@@ -378,6 +390,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("overdue", help="List overdue loans")
     p.set_defaults(func=cmd_overdue)
+
+    p = sub.add_parser("version", help="Print version and exit")
+    p.set_defaults(func=cmd_version)
 
     p = sub.add_parser("export-json", help="Export all data to a JSON file")
     p.add_argument("path", help="Output file path")
